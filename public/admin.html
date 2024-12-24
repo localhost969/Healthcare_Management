@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Admin Panel</h1>
+    </header>
+
+    <main>
+        <!-- Add Doctor Form Section -->
+        <section id="add-doctor-section">
+            <h2>Add New Doctor</h2>
+            <form id="add-doctor-form">
+                <label for="doctor_name">Doctor Name</label>
+                <input type="text" id="doctor_name" name="name" required>
+
+                <label for="doctor_specialty">Specialty</label>
+                <input type="text" id="doctor_specialty" name="specialty" required>
+
+                <label for="doctor_location">Location</label>
+                <input type="text" id="doctor_location" name="location" required>
+
+                <button type="submit">Add Doctor</button>
+            </form>
+        </section>
+
+        <!-- Doctor List Section -->
+        <section id="doctors-section">
+            <h2>Doctors</h2>
+            <table id="doctors-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Specialty</th>
+                                                <th>location</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Doctor entries will be dynamically populated -->
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Appointments Section -->
+        <section id="appointments-section">
+            <h2>All Appointments</h2>
+            <table id="appointments-table">
+                <thead>
+                    <tr>
+                        <th>Patient Name</th>
+                        <th>Patient Location</th>
+                        <th>Doctor</th>
+                        <th>Appointment Time</th>
+                        <th>Map</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Appointments will be dynamically populated -->
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Health Management System</p>
+    </footer>
+
+    <script>
+        // Fetch and display doctors
+        function loadDoctors() {
+            fetch('/api/doctors')
+                .then(response => response.json())
+                .then(data => {
+                    const tableBody = document.querySelector('#doctors-table tbody');
+                    tableBody.innerHTML = ''; // Clear current doctors
+                    data.forEach(doctor => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${doctor.name}</td>
+                            <td>${doctor.specialty}</td>
+                            <td>${doctor.location}</td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                });
+        }
+
+        // Fetch and display appointments with patient locations
+        function loadAppointments() {
+            fetch('/api/appointments')
+                .then(response => response.json())
+                .then(data => {
+                    const tableBody = document.querySelector('#appointments-table tbody');
+                    tableBody.innerHTML = ''; // Clear current appointments
+                    data.forEach(appointment => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${appointment.patient_name}</td>
+                            <td>${appointment.patient_location}</td>
+                            <td>${appointment.doctor_name}</td>
+                            <td>${appointment.appointment_time}</td>
+                            <td><button onclick="showPatientMap('${appointment.patient_location}')">Show on Map</button></td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                });
+        }
+
+        // Function to show patient location on map using Google Maps Embed (static, no API key)
+        function showPatientMap(patientLocation) {
+            const [lat, lng] = patientLocation.split(',').map(coord => parseFloat(coord));
+
+            // Create the Google Maps URL for embedding
+            const mapUrl = `https://www.google.com/maps?q=${lat},${lng}&z=12&output=embed`;
+
+            // Create an iframe to show the map
+            const mapContainer = document.createElement('iframe');
+            mapContainer.style.width = '100%';
+            mapContainer.style.height = '400px';
+            mapContainer.src = mapUrl;
+
+            // Open a new window and display the embedded map
+            const mapWindow = window.open('', '_blank', 'width=600,height=400');
+            mapWindow.document.write('<h2>Patient Location</h2>');
+            mapWindow.document.body.appendChild(mapContainer);
+        }
+
+        // Add new doctor
+        document.getElementById('add-doctor-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const name = document.getElementById('doctor_name').value;
+            const specialty = document.getElementById('doctor_specialty').value;
+            const location = document.getElementById('doctor_location').value;
+
+            // Send doctor data to the server to add a new doctor
+            fetch('/api/doctors', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name, specialty, location })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Doctor added successfully:', data);
+                alert('Doctor added successfully!');
+                loadDoctors(); // Reload the doctors list after adding a new doctor
+            })
+            .catch(error => {
+                console.error('Error adding doctor:', error);
+                alert('Error adding doctor: ' + error.message);
+            });
+        });
+
+        // Load doctors and appointments on page load
+        window.onload = () => {
+            loadDoctors();
+            loadAppointments();
+        };
+    </script>
+</body>
+</html>
+

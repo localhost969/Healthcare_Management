@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Appointment</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #007bff;
+            color: white;
+            text-align: center;
+            padding: 1rem 0;
+        }
+        main {
+            padding: 2rem;
+        }
+        .form-container, .map-container {
+            margin-bottom: 2rem;
+        }
+        label {
+            display: block;
+            margin-top: 1rem;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        #map {
+            height: 400px;
+            margin-top: 1rem;
+        }
+        .search-container {
+            margin-top: 1rem;
+        }
+        footer {
+            text-align: center;
+            padding: 1rem;
+            background-color: #f1f1f1;
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Book an Appointment</h1>
+    </header>
+
+    <main>
+        <div class="form-container">
+            <form id="appointment-form">
+                <label for="patient_name">Patient Name</label>
+                <input type="text" id="patient_name" name="patient_name" required>
+
+                <label for="patient_location">Patient Location</label>
+                <input type="text" id="patient_location" name="patient_location" placeholder="Click on map or search location" readonly required>
+
+                <label for="doctor">Select Doctor</label>
+                <select id="doctor" name="doctor_id" required>
+                    <!-- Doctor options will be dynamically populated -->
+                </select>
+
+                <label for="appointment_time">Appointment Time</label>
+                <input type="datetime-local" id="appointment_time" name="appointment_time" required>
+
+                <button type="submit">Book Appointment</button>
+            </form>
+        </div>
+
+        <div class="map-container">
+            <h2>Select Your Location</h2>
+            <div class="search-container">
+                <input type="text" id="search-box" placeholder="Search location..." />
+                <button id="search-button">Search</button>
+            </div>
+            <div id="map"></div>
+        </div>
+    </main>
+<section id="upcoming-appointments" style="margin-top: 20px; padding: 1rem; background-color: #f9f9f9;">
+    <h2>Upcoming Appointments</h2>
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="background-color: #007bff; color: white;">
+                <th style="padding: 8px; border: 1px solid #ddd;">Doctor</th>
+                <th style="padding: 8px; border: 1px solid #ddd;">Specialty</th>
+                <th style="padding: 8px; border: 1px solid #ddd;">Location</th>
+                <th style="padding: 8px; border: 1px solid #ddd;">Time</th>
+            </tr>
+        </thead>
+        <tbody id="appointments-list">
+            <!-- Appointments will be dynamically populated here -->
+        </tbody>
+    </table>
+</section>
+
+    <footer>
+        <p>&copy; 2024 Health Management System</p>
+    </footer>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize the map
+        const map = L.map('map').setView([17.3850, 78.4867], 13); // Default to Hyderabad
+        const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+        }).addTo(map);
+
+        let marker;
+
+        // Event listener for map clicks
+        map.on('click', function(e) {
+            const { lat, lng } = e.latlng;
+            document.getElementById('patient_location').value = `${lat}, ${lng}`;
+            
+            // Add or move the marker
+            if (marker) {
+                marker.setLatLng([lat, lng]);
+            } else {
+                marker = L.marker([lat, lng]).addTo(map);
+            }
+        });
+
+        // Handle search
+        document.getElementById('search-button').addEventListener('click', function() {
+            const searchQuery = document.getElementById('search-box').value;
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.length > 0) {
+                        const { lat, lon } = data[0];
+                        map.setView([lat, lon], 15);
+                        
+                        // Update patient location and marker
+                        document.getElementById('patient_location').value = `${lat}, ${lon}`;
+                        if (marker) {
+                            marker.setLatLng([lat, lon]);
+                        } else {
+                            marker = L.marker([lat, lon]).addTo(map);
+                        }
+                    } else {
+                        alert('Location not found. Please try again.');
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        });
+
+        // Populate the doctor dropdown
+        fetch('/api/doctors')
+            .then(response => response.json())
+            .then(data => {
+                const doctorSelect = document.getElementById('doctor');
+                data.forEach(doctor => {
+                    const option = document.createElement('option');
+                    option.value = doctor.id;
+                    option.textContent = `${doctor.name} - ${doctor.specialty}`;
+                    doctorSelect.appendChild(option);
+                });
+            });
+
+        // Handle appointment form submission
+        document.getElementById('appointment-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const patientName = document.getElementById('patient_name').value;
+            const patientLocation = document.getElementById('patient_location').value;
+            const doctorId = document.getElementById('doctor').value;
+            const appointmentTime = document.getElementById('appointment_time').value;
+
+            fetch('/api/appointments', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    patient_name: patientName,
+                    patient_location: patientLocation,
+                    doctor_id: doctorId,
+                    appointment_time: appointmentTime,
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert('Appointment booked successfully!');
+                document.getElementById('appointment-form').reset();
+            })
+            .catch(error => {
+                alert('Error booking appointment: ' + error.message);
+            });
+        });
+         // Function to fetch and display upcoming appointments
+    function loadUpcomingAppointments() {
+        fetch('/api/appointments') // Replace with your actual API endpoint
+            .then(response => response.json())
+            .then(data => {
+                const appointmentsList = document.getElementById('appointments-list');
+                appointmentsList.innerHTML = ''; // Clear any existing appointments
+                
+                if (data.length === 0) {
+                    appointmentsList.innerHTML = '<tr><td colspan="4" style="padding: 8px; text-align: center;">No upcoming appointments</td></tr>';
+                    return;
+                }
+
+                data.forEach(appointment => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td style="padding: 8px; border: 1px solid #ddd;">${appointment.doctor_name}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">${appointment.specialty}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">${appointment.doctor_location}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">${appointment.appointment_time}</td>
+                    `;
+                    appointmentsList.appendChild(row);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching appointments:', error);
+            });
+    }
+
+    // Load upcoming appointments when the page loads
+    document.addEventListener('DOMContentLoaded', loadUpcomingAppointments);
+
+
+    </script>
+</body>
+</html>
+
