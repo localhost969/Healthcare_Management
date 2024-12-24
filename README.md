@@ -2,6 +2,9 @@
 
 A lightweight web-based Healthcare Management System for booking doctor appointments and managing patient records.  
 
+![image](https://github.com/user-attachments/assets/0e75e993-0d8b-4313-bf05-3d2083b1037f)
+
+
 ## Installation  
 
 1. **Clone the repository**:  
